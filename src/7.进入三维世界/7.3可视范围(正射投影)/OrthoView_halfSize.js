@@ -2,9 +2,10 @@ var VSHADER_SOURCE = `
     attribute vec4 a_Position;
     attribute vec4 a_Color;
     varying vec4 v_Color;
+    uniform mat4 u_ViewMatrix;
     uniform mat4 u_ProjMatrix;
     void main() {
-        gl_Position = u_ProjMatrix * a_Position;
+        gl_Position = u_ProjMatrix * u_ViewMatrix * a_Position;
         v_Color = a_Color;
     }
 `;
@@ -21,9 +22,6 @@ function main() {
     var canvas = document.getElementById('webgl');
     if (!canvas) return;
 
-    var nf = document.getElementById('nearFar');
-    if (!nf) return;
-
     var gl = getWebGLContext(canvas);
     if (!gl) return;
 
@@ -36,20 +34,23 @@ function main() {
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-    // 创建矩阵
-    // var lookMat = new Matrix4();
-    // lookMat.setLookAt(0.25, 0.25, 0.25, 0, 0, 0, 0, 1, 0);
-    // var u_lookMat = gl.getUniformLocation(gl.program, 'u_lookMat');
-    // if (u_lookMat < 0) return;
-    // gl.uniformMatrix4fv(u_lookMat, false, lookMat.elements);
+    // 正射投影矩阵
     var projMatrix = new Matrix4();
+    // 原始值
+    // projMatrix.setOrtho(-1.0, 1.0, -1.0, 1.0, 0.0, 2.0);
+    // projMatrix.setOrtho(-0.5, 0.5, -0.5, 0.5, 0.0, 0.5);
+    projMatrix.setOrtho(-0.3, 0.3, 1.0, 0.0, 0.0, 1.0);
     var u_ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix');
-    if (u_ProjMatrix < 0) return;
+    gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements);
 
+    // 视图矩阵
+    var viewMatrix = new Matrix4();
+    var u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
     document.onkeydown = function(ev) {
-        keydown(ev, gl, n, u_ProjMatrix, projMatrix, nf);
+        keydown(ev, gl, n, u_ViewMatrix, viewMatrix);
     }
-    draw(gl, n, u_ProjMatrix, projMatrix, nf);
+
+    draw(gl, n, u_ViewMatrix, viewMatrix);
 }
 
 function initVertexBuffer(gl) {
@@ -90,27 +91,23 @@ function initVertexBuffer(gl) {
     return n;
 }
 
-var near = 0.0, far = 0.5;
-function keydown(ev, gl, n, u_ProjMatrix, projMatrix, nf) {
-    if (ev.keyCode == 37) { // 左
-        near -= 0.01;
-    } else if (ev.keyCode == 39) { // 右
-        near += 0.01;
-    } else if (ev.keyCode == 38) { // 上
-        far += 0.01;
-    } else if (ev.keyCode == 40) { // 下
-        far -= 0.01;
+
+var eyeX = 0.20, eyeY = 0.25, eyeZ = 0.25;
+function keydown(ev, gl, n, u_ViewMatrix, viewMatrix) {
+    if (ev.keyCode == 39) { // 左
+        eyeX -= 0.01;
+    } else if (ev.keyCode == 37) { //右
+        eyeX += 0.01;
     } else {
         return;
     }
-    draw(gl, n, u_ProjMatrix, projMatrix, nf);
+
+    draw(gl, n, u_ViewMatrix, viewMatrix);
 }
 
-function draw(gl, n, u_ProjMatrix, projMatrix, nf) {
-    nf.innerHTML = 'near: ' + near + ' , far: '  + far;
-    projMatrix.setOrtho(-1, 1, -1, 1, near, far);
-
-    gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements);
+function draw(gl, n, u_ViewMatrix, viewMatrix) {
+    viewMatrix.setLookAt(eyeX, eyeY, eyeZ, 0, 0, 0, 0, 1, 0);
+    gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLES, 0, n);
+    gl.drawArrays(gl.TRIANGLES, 0, n); 
 }
