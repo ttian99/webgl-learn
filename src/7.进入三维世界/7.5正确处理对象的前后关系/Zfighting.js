@@ -2,11 +2,9 @@ var VSHADER_SOURCE = `
     attribute vec4 a_Position;
     attribute vec4 a_Color;
     varying vec4 v_Color;
-    uniform mat4 u_ViewMatrix;
-    uniform mat4 u_ProjMatrix;
-    uniform mat4 u_ModelMatrix;
+    uniform mat4 u_MvpMatrix;
     void main() {
-        gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
+        gl_Position = u_MvpMatrix * a_Position;
         v_Color = a_Color;
     }
 `;
@@ -35,51 +33,46 @@ function main() {
 
     // 创建模型矩阵
     var modelMatrix = new Matrix4();
-    modelMatrix.setTranslate(0.75, 0, 0);
-    var u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
-    if (u_ModelMatrix < 0) return;
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
-
+    // modelMatrix.setTranslate(0.75, 0, 0);
     // 创建视图矩阵
     var viewMatrix = new Matrix4();
     viewMatrix.setLookAt(0, 0, 5, 0, 0, -100, 0, 1, 0);
-    var u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
-    if (u_ViewMatrix < 0) return;
-    gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
-
     // 创建投影
     var projMatrix = new Matrix4();
     projMatrix.setPerspective(30, canvas.width / canvas.height, 1.0, 100);
-    var u_ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix');
-    if (u_ProjMatrix < 0) return;
-    gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements);
 
-    // 绘制右侧的一组三角形  
+    // 计算模型视图投影矩阵
+    var mvpMatrix = new Matrix4();
+    mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix);
+
+    var u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix');
+    if (u_MvpMatrix < 0) return;
+    gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
+
+
+    gl.enable(gl.DEPTH_TEST);
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLES, 0, n);
-
-    // 绘制左侧的一组三角形
-    modelMatrix.setTranslate(-0.75, 0, 0);
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
-    gl.drawArrays(gl.TRIANGLES, 0, n);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // 启用多边形偏移
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    // 绘制绿色三角形
+    gl.drawArrays(gl.TRIANGLES, 0, n / 2);
+    // 绘制黄色三角形
+    gl.polygonOffset(1.0, 1.0);
+    gl.drawArrays(gl.TRIANGLES, n / 2, n / 2);
 }
 
 function initVertexBuffer(gl) {
-    var n = 9;
+    var n = 6;
     var vertexArr = new Float32Array([
-        // 绿色三角形 最后
-        0.0, 1.0, -4.0, 0.4, 1.0, 0.4,
-        -0.5, -1.0, -4.0, 0.4, 1.0, 0.4,
-        0.5, -1.0, -4.0, 1.0, 0.4, 0.4,
-        // 黄色三角形 中间
-        0.0, 1.0, -2.0, 1.0, 1.0, 0.4,
-        -0.5, -1.0, -2.0, 1.0, 1.0, 0.4,
-        0.5, -1.0, -2.0, 1.0, 0.4, 0.4,
-        // 蓝色三角形 最前
-        0.0, 1.0, 0.0, 0.4, 0.4, 1.0,
-        -0.5, -1.0, 0.0, 0.4, 0.4, 1.0,
-        0.5, -1.0, 0.0, 1.0, 0.4, 0.4,
+        // 绿色三角形
+        0.0, 2.5, -5.0, 0.0, 1.0, 0.0,
+        -2.5, -2.5, -5.0, 0.0, 1.0, 0.0,
+        2.5, -2.5, -5.0, 1.0, 0.0, 0.0,
+        // 黄色三角形
+        0.0, 3.0, -5.0, 1.0, 0.0, 0.0,
+        -3.0, -3.0, -5.0, 1.0, 1.0, 0.0,
+        3.0, -3.0, -5.0, 1.0, 1.0, 0.0,
     ]);
     var vertexBuffer = gl.createBuffer();
     if (!vertexBuffer) return;
